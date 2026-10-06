@@ -1,0 +1,33 @@
+# 所有压缩包
+*.tar*
+*.tar
+*.zip
+*.gz
+*.xz
+*.7z
+*.bz2
+*.rar
+*.jpg
+*.png
+*.bits
+*.gif
+*.frag
+*.vert
+*.ttf
+*.yuv
+
+
+# 镜像、根文件系统
+*.img
+*.cpio
+*.squashfs
+*.ext4
+
+# SDK、工具链
+.vscode/
+
+# 编译产物
+
+
+#目录
+hisi-CVE-fix/
