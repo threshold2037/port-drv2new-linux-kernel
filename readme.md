@@ -25,7 +25,7 @@
 * 07 《[gpu的oops问题](hisi-gpu-drv/gpu%E7%9A%84oops%E9%97%AE%E9%A2%98.md)》 OOPS崩溃问题排查
 * 08 《[lockdep 环形锁依赖告警](hisi-pm-drv/lockdep%20%E7%8E%AF%E5%BD%A2%E9%94%81%E4%BE%9D%E8%B5%96%E5%91%8A%E8%AD%A6.md)》lock造成的死锁，以它为典型代表。
 * 09 《[JPEG格式解码死机](hisi-test-drv/JPEG%E6%A0%BC%E5%BC%8F%E8%A7%A3%E7%A0%81%E6%AD%BB%E6%9C%BA.md)》硬件驱动测试验证记录。所有的硬件驱动测试，以它为典型代表。
-* 10 《*LTP 测试报告*》LTP 测试报告。包括几千项测试原始记录子目录和测试报告本身。测试报告对豁免测试项有严谨说明。
+* 10 《[LTP测试分析报告](LTP-test-report/LTP%E6%B5%8B%E8%AF%95%E5%88%86%E6%9E%90%E6%8A%A5%E5%91%8A.md)》LTP 测试报告。包括千余项测试原始记录子目录和测试报告本身。测试报告对豁免测试项有严谨说明。
 
  > 
  > 省略其余文档包含设备树、大量移植源适配修改记录

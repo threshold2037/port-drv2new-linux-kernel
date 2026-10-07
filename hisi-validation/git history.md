@@ -1,3 +1,69 @@
+commit a7545a39d3e4102ed58393c92ec0ad28c879c7e0
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Sat Sep 12 17:24:56 2026 +0800
+
+    fix: Fix hi_cpufreq crash on 5.15 and replace interactive governor with conservative
+    
+    The cpufreq driver crashed when switching to ondemand/powersave/conservative governors
+    because freqs.policy was used uninitialized in hi_cpufreq_scale(). Remove
+    the obsolete for_each_online_cpu loops and use policy->cached_resolved_idx
+    to get the correct frequency table index in hi_cpufreq_target(), fixing the
+    kernel Oops under Linux 5.15.
+    
+    Also update the module load script to use conservative governor instead of
+    interactive, which was removed in Linux 5.15. Adjust sampling_rate and
+    freq_step parameters accordingly.
+    
+
+commit be9699c0918e948e87dd88df4c75b3f9506f8237
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Wed Sep 9 18:10:59 2026 +0800
+
+    drivers: msp: adsp: strip empty .arm_vfe_header section
+    
+    Remove the unused non-allocatable .arm_vfe_header section from objects
+    extracted from libimedia_asrc_arma9.a to silence the modpost warning.
+    Also fix shell command substitution so 'ar t' runs after cd into the
+    library directory.
+    
+
+commit 7258669007a8fdc896c88f2724f06c5714a179fd
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Wed Sep 9 17:07:34 2026 +0800
+
+    Remove __init annotation from hi_init_opp_table declaration in pm/hi_opp_data.h to fix modpost section mismatch warning
+    
+
+commit 17ead28a28d837566250921d2dfd0c1b9c17f71b
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Wed Sep 9 16:50:43 2026 +0800
+
+    Remove __init annotation from gpu_init_clocks declaration in mali450/mali4xx_clk.h to fix modpost section mismatch warning
+    
+
+commit db5600cac79eb1779c1f805a766096f4e559b3b0
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Wed Sep 9 13:25:14 2026 +0800
+
+    mali: fix API_VERSION extraction path in Kbuild
+    
+
+commit fef2b55dabc7aef43de28d745e57a5df1203220e
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Wed Sep 9 11:23:05 2026 +0800
+
+    fix: adsp: add -fno-short-wchar to fix wchar_t size mismatch warning
+    
+    Add ccflags-y += -fno-short-wchar to drivers/msp/adsp/Makefile so all ADSP objects consistently use 4-byte wchar_t. This resolves the arm-hisi-linux-gnueabi-ld warnings about objects compiled with 2-byte wchar_t while the output expects 4-byte wchar_t.
+    
+
+commit 1b4e5a910f759a57234aec0c513bf54a91d4ca63
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Tue Sep 8 20:46:16 2026 +0800
+
+    Fix Kconfig timer choice symbol conflict by renaming duplicated HI3798MV2X symbols to HI3796MV2X in mach-hi3796mv2x
+    
+
 commit 6af2f16ed70d928bc363774d461f74c9af54ba40 (HEAD -> master)
 Author: Linux Kernel Upgrade <Upgrade@email.system>
 Date:   Wed Sep 2 16:19:08 2026 +0800
