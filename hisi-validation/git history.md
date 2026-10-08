@@ -1,3 +1,14 @@
+commit df990c8c32d40038aca4fe9a64d1b7d5452e955f
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Sat Sep 26 15:02:16 2026 +0800
+
+     fix(fastboot): resolve undefined instruction and data abort errors
+        - Add -fno-delete-null-pointer-checks to prevent GCC12's erroneous path isolation optimization from turning null pointer UB into undefined instruction traps.
+        - Add -mno-unaligned-access to fix unaligned ldrh accesses in download_process(), which caused undefined instruction and data abort before the head-frame CRC check.
+        - Add -mfloat-abi=soft to prevent GCC12 from auto-vectorizing ordinary C code and thus generating NEON/VFP instructions.
+        - Add __attribute__((packed)) to IP_t in NetSetIP to prevent GCC12 store-merging from generating a 32-bit store to a 2-byte aligned  address, which triggered an ARM unaligned access data abort.
+    
+
 commit a7545a39d3e4102ed58393c92ec0ad28c879c7e0
 Author: Linux Kernel Upgrade <Upgrade@email.system>
 Date:   Sat Sep 12 17:24:56 2026 +0800
