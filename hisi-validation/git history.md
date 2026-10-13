@@ -1,3 +1,27 @@
+commit ec906cf6347dd36a39afdd87fefa82cbcc666465
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Tue Sep 29 13:48:52 2026 +0800
+
+    Fix kernel panic when loading mali.ko on Linux 5.15 with CONFIG_LOCKDEP=y
+    
+    This fixes a critical DMA API compatibility issue when porting the driver from Linux 3.18 to 5.15.
+    
+    The legacy code used the obsolete DEFINE_DMA_ATTRS/dma_set_attr mechanism (enum-based), which is no longer available in 5.15. The current implementation incorrectly passes DMA_ATTR_WRITE_COMBINE as an enum value rather than a bitmask to dma_alloc_attrs().
+    
+    This causes dma_alloc_attrs() to misinterpret the attributes,leading to an invalid virtual address calculation (0x26d01000) and a subsequent kernel paging request failure (Oops) in isolate_migratepages_range during CMA allocation.
+    
+    Switch to the correct 5.15 API usage by passing DMA_ATTR_WRITE_COMBINE directly as a bitmask flag in the attrs argument of dma_alloc_attrs().
+    
+    Tested on Hi3798MX platform (HiSTBLinuxV100R005C09SPC090).
+    
+
+commit 5d73804c41e7bf6f66df464eadbf0ca8d0e2f958
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Sat Sep 26 21:43:25 2026 +0800
+
+    Modify partition table to enable A/B redundant partitions for OTA upgrade preparation; update boot arguments accordingly
+    
+
 commit df990c8c32d40038aca4fe9a64d1b7d5452e955f
 Author: Linux Kernel Upgrade <Upgrade@email.system>
 Date:   Sat Sep 26 15:02:16 2026 +0800
