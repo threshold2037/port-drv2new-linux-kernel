@@ -336,4 +336,9 @@ grep -rn "hi_cpufreq_lock\|cpus_read_lock\|get_online_cpus\|cpus_write_lock" dri
 1. **给不同 API 的版本阈值建一张表。** 3.15（通知）、4.13（hotplug 锁更名）、5.2（freqs.policy）、5.15（老 API 删除）——混用阈值是跨版本驱动里最高发的错误，而且往往静默。
 1. **让 lockdep 一直开着，并且用 LTP 这类工具去制造并发。** 这次的问题在常规功能测试里几乎不会现形，是 `CONFIG_PROVE_LOCKING` + CPU 热插拔压力把它逼出来的。**锁序问题从来不是"测功能"能测出来的，只有"测并发"才行。**
 
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)
+
 ## 其它细节

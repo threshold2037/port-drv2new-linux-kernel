@@ -2,46 +2,51 @@
 
     驱动程序能加载成功，不等于它就正常运行，只有通过测试才能把工作做得更扎实。
     
-        先测试了最基础的/dev/fb0,正常显示了蓝、红、绿、黄、白色块。证明基础的驱动程序 ddr.ko、hi_media.ko、hi_mmz.ko、hi_common.ko、
-    hi_pq.ko正常，hi_hdmi.ko、hi_fb.ko、hi_vou.ko驱动及所对应的硬件是正常工作的。也验证了《[[gpu的中断号问题]] 》中使用的硬件中断号转化
-    为虚拟中断号注册是正确的。
+       先测试了最基础的/dev/fb0,正常显示了蓝、红、绿、黄、白色块。证明基础的驱动程序 ddr.ko、hi_media.ko、hi_mmz.ko、
+       hi_common.ko、hi_pq.ko正常，hi_hdmi.ko、hi_fb.ko、hi_vou.ko驱动及所对应的硬件是正常工作的。也验证了
     
-         紧接着测试了/dev/tde，正常显示。TDE（Two-Dimensional Graphics Engine，二维图形引擎）展示了2D图像处理的“YUV 色彩空间到 RGB 
-       色彩空间的转换”、“图像混合（Blending）”、“颜色填充（Color Fill）”、“颜色键控（Color Key）”、“去闪烁（De-flicker）”、“快速拷贝
-      （Quick Copy）”、“图像缩放（Resize）”等功能。
-    
-    经过这两种测试例程后，我们来看看硬件中断的情况：
-    root@histb:~/sample/tde# cat /proc/interrupts  |  grep -E 'hi_vdp_irq | hi_tde_irq'
-    	 35:     321093          0          0          0     GIC-0 122 Level     hi_vdp_irq
-    	 36:      0             23          0          0     GIC-0 123 Level     hi_tde_irq
-    
-    从上面指令中看到第1列“虚拟中断号”，第2——5列“中断次数计数”，第7列“硬件中断号”，第9列“驱动程序名称”。
-    
+
+《[gpu的中断号问题](../hisi-gpu-drv/gpu%E7%9A%84%E4%B8%AD%E6%96%AD%E5%8F%B7%E9%97%AE%E9%A2%98.md) 》中使用的硬件中断号转化为虚拟中断号注册是正确的。
+
+````
+紧接着测试了/dev/tde，正常显示。TDE（Two-Dimensional Graphics Engine，二维图形引擎）展示了2D图像处理的“YUV 色彩空间到 RGB 色彩空间的转换”、“图像混合（Blending）”、“颜色填充（Color Fill）”、“颜色键控（Color Key）”、“去闪烁（De-flicker）”、“快速拷贝（Quick Copy）”、“图像缩放（Resize）”等功能。
+```	
+	经过这两种测试例程后，我们来看看硬件中断的情况：
+	root@histb:~/sample/tde# cat /proc/interrupts  |  grep -E 'hi_vdp_irq | hi_tde_irq'
+		 35:     321093          0          0          0     GIC-0 122 Level     hi_vdp_irq
+		 36:      0             23          0          0     GIC-0 123 Level     hi_tde_irq
+	
+	从上面指令中看到第1列“虚拟中断号”，第2——5列“中断次数计数”，第7列“硬件中断号”，第9列“驱动程序名称”。
+	 
 
 ## 一、问题描述：
+	执行测试例程输出信息如下：
+```shell
+root@histb:~/sample/higo# ./sample_dec
+		 --- Get HDMI event: HOTPLUG. ---
+		HIGO Version            :4.0.0.0 SPC040 RELEASE
+		HIGO Build Time         :Sep  2 2016 15:47:47
+		HIGO Adp Version        :4.0.0.0 V1R2&V1R3&V1R5&V1R7 SPC040
+		HIGO Adp Build Time     :Sep  2 2016 15:47:49
+````
 
-    执行测试例程输出信息如下：
-    root@histb:~/sample/higo# ./sample_dec
-    	 --- Get HDMI event: HOTPLUG. ---
-    	HIGO Version            :4.0.0.0 SPC040 RELEASE
-    	HIGO Build Time         :Sep  2 2016 15:47:47
-    	HIGO Adp Version        :4.0.0.0 V1R2&V1R3&V1R5&V1R7 SPC040
-    	HIGO Adp Build Time     :Sep  2 2016 15:47:49
-    
     输入没有响应，不能中止程序。几分钟后，输出信息如下：
-    	[  171.639602] rcu: INFO: rcu_sched detected stalls on CPUs/tasks:
-    	[  171.645575] rcu:     2-...0: (6 ticks this GP) idle=401/1/0x40000000 softirq=8400/8403 fqs=15000
-    	[  171.654222]  (detected by 3, t=60016 jiffies, g=14073, q=34)
-    	[  171.659900] Sending NMI from CPU 3 to CPUs 2:
-    	[  181.648668] rcu: rcu_sched kthread timer wakeup didn't happen for 10007 jiffies! 
-    				g14073 f0x0 RCU_GP_WAIT_FQS(5) ->state=0x402
-    	[  181.659993] rcu:     Possible timer handling issue on cpu=3 timer-softirq=27524
-    	[  181.667052] rcu: rcu_sched kthread starved for 10029 jiffies! g14073 f0x0 RCU_GP_WAIT_FQS(5) ->state=0x402 ->cpu=3
-    	[  181.677421] rcu:     Unless rcu_sched kthread gets sufficient CPU time, OOM is now expected behavior.
-    	[  181.686388] rcu: RCU grace-period kthread stack dump:
-    	[  181.691445] task:rcu_sched       state:I stack:    0 pid:   12 ppid:     2 flags:0x00000000
-    	[  181.699829] Backtrace: 略
     
+
+````shell
+[  171.639602] rcu: INFO: rcu_sched detected stalls on CPUs/tasks:
+[  171.645575] rcu:     2-...0: (6 ticks this GP) idle=401/1/0x40000000 softirq=8400/8403 fqs=15000
+[  171.654222]  (detected by 3, t=60016 jiffies, g=14073, q=34)
+[  171.659900] Sending NMI from CPU 3 to CPUs 2:
+[  181.648668] rcu: rcu_sched kthread timer wakeup didn't happen for 10007 jiffies! 
+			g14073 f0x0 RCU_GP_WAIT_FQS(5) ->state=0x402
+[  181.659993] rcu:     Possible timer handling issue on cpu=3 timer-softirq=27524
+[  181.667052] rcu: rcu_sched kthread starved for 10029 jiffies! g14073 f0x0 RCU_GP_WAIT_FQS(5) ->state=0x402 ->cpu=3
+[  181.677421] rcu:     Unless rcu_sched kthread gets sufficient CPU time, OOM is now expected behavior.
+[  181.686388] rcu: RCU grace-period kthread stack dump:
+[  181.691445] task:rcu_sched       state:I stack:    0 pid:   12 ppid:     2 flags:0x00000000
+[  181.699829] Backtrace: 略
+````
 
 ## 二、初步分析排查：
 
@@ -50,12 +55,12 @@
     
     2、关键信息：
     	rcu: rcu_sched kthread starved for 10029 jiffies! g14073 f0x0 RCU_GP_WAIT_FQS(5) ->state=0x402 ->cpu=3
-    RCU调度kthread已被饿死（starved）10029个jiffies，即长时间未获得CPU时间。该kthread本身运行在CPU 3上，但CPU 3因其他任务导致kthread无
-    法被调度。
+    RCU调度kthread已被饿死（starved）10029个jiffies，即长时间未获得CPU时间。该kthread本身运行在CPU 3上，但CPU 3因其他任务
+    导致kthread无法被调度。
     
     3、使用strace工具跟踪：
-    	root@histb:~/sample/higo# strace -o sample_dec_strace.log ./sample_dec。同样死机。重启后查看sample_dec_strace.log文件内
-    	容。信息如下：
+    	root@histb:~/sample/higo# strace -o sample_dec_strace.log ./sample_dec。同样死机。重启后查看sample_dec_strace.log
+    	文件内容。信息如下：
     	root@histb:~/sample/higo# cat sample_dec_strace.log | tail -2
     		ioctl(14, _IOC(_IOC_WRITE, 0x74, 0x9, 0x10), 0x6ecb48d4) = 0
     		clock_nanosleep_time64(CLOCK_REALTIME, 0, {tv_sec=3, tv_nsec=0},
@@ -99,8 +104,9 @@
     		202:    sleep(3);
     		217:                sleep(1);
     		225:        usleep(200 * 1000);
-    	    仔细分析源程序，这些休眠函数并不是起决定性作用的，试着注释它们。试看看会卡死在哪个程序上，排除休眠函数的干扰。改源程序，编译，
-    	重新加载程序。再次执行root@histb:~/sample/higo# strace -o fix_sample_dec_strace.log ./sample_dec，同样卡死，几分钟后死机。
+        仔细分析源程序，这些休眠函数并不是起决定性作用的，试着注释它们。试看看会卡死在哪个程序上，排除休眠函数的干扰。改源
+        程序，编译，重新加载程序。再次执行root@histb:~/sample/higo# strace -o fix_sample_dec_strace.log ./sample_dec，
+        同样卡死，几分钟后死机。
     	cat fix_sample_dec_strace.log | tail -30，输出信息为空。没有能够保存有信息。
     
     5、使用其它工具的可能性：
@@ -117,29 +123,29 @@
     版本HiSTBLinuxV100R005C00SPC041B020也存在同样的问题，且同样是sample_dec例程。看来这是个遗留问题！！
     
     7、发现故障的规律：
-         经过多次测试，发现无论是HiSTBLinuxV100R005C00SPC041B020版SDK，还是移植到5.15内核的，都存在以下规律：sample/higo目录下的
-    sample_animation、sample_encoder、sample_gdev、sample_surface  sample_wm、sample_bitmapfont、sample_fillrect、sample_logo、
-    sample_text正常。但是sample_dec 、sample_performance、 sample_effect、sample_stereo会死机。查看所有死机的测试例程，无一例外的使用
-    了JPEG图片格式。大胆猜测是hi_jpeg.ko驱动有问题。
+      经过多次测试，发现无论是HiSTBLinuxV100R005C00SPC041B020版SDK，还是移植到5.15内核的，都存在以下规律：sample/higo目录下
+     的sample_animation、sample_encoder、sample_gdev、sample_surface  sample_wm、sample_bitmapfont、sample_fillrect、
+     sample_logo、sample_text正常。但是sample_dec 、sample_performance、 sample_effect、sample_stereo会死机。查看所有死机的
+     测试例程，无一例外的使用了JPEG图片格式。大胆猜测是hi_jpeg.ko驱动有问题。
     
     8、分析JPEG驱动程序：（在宿主机上执行）
     find ./source -type d -name 'jpeg'
     	./source/msp/drv/jpeg
     	./source/msp/api/jpeg
-        找到hi_jpeg.ko驱动的源码目录，按驱动调用链：sample_dec——>libhigoadp.so库——>open(......，"/dev/hi_jpeg"，......）——>ioctl
+    找到hi_jpeg.ko驱动的源码目录，按驱动调用链：sample_dec——>libhigoadp.so库——>open(......，"/dev/hi_jpeg"，......）——>ioctl
     ——>hi_jpeg.ko，猜测./source/msp/drv/jpeg目录下的源码可能会有对应的ioctl函数。
     
     grep -r '.*ioctl.*' ./source/msp/drv/jpeg
-    	./......./jpeg/src/jpeg_drv_osr.c:#include <linux/ioctl.h>
-    	./......./jpeg/src/jpeg_drv_osr.c:static long jpg_osr_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg);
-    	./......./jpeg/src/jpeg_drv_osr.c:static long jpg_osr_compat_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg);
-    	./......./jpeg/src/jpeg_drv_osr.c:                                 jpg_osr_ioctl,jpg_osr_compat_ioctl,
-    	./......./jpeg/src/jpeg_drv_osr.c:                                 jpg_osr_ioctl,NULL,NULL, NULL);
-    	./......./jpeg/src/jpeg_drv_osr.c:* func            : jpg_osr_ioctl
-    	./......./jpeg/src/jpeg_drv_osr.c:static long jpg_osr_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg)
-    	./......./jpeg/src/jpeg_drv_osr.c:* func          : jpge_compat_ioctl
-    	./......./jpeg/src/jpeg_drv_osr.c:static long jpg_osr_compat_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg)
-    	./......./jpeg/src/jpeg_drv_osr.c:    return jpg_osr_ioctl(file,Cmd,Arg);
+    	./.../jpeg/src/jpeg_drv_osr.c:#include <linux/ioctl.h>
+    	./.../jpeg/src/jpeg_drv_osr.c:static long jpg_osr_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg);
+    	./.../jpeg/src/jpeg_drv_osr.c:static long jpg_osr_compat_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg);
+    	./.../jpeg/src/jpeg_drv_osr.c:                                 jpg_osr_ioctl,jpg_osr_compat_ioctl,
+    	./.../jpeg/src/jpeg_drv_osr.c:                                 jpg_osr_ioctl,NULL,NULL, NULL);
+    	./.../jpeg/src/jpeg_drv_osr.c:* func            : jpg_osr_ioctl
+    	./.../jpeg/src/jpeg_drv_osr.c:static long jpg_osr_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg)
+    	./.../jpeg/src/jpeg_drv_osr.c:* func          : jpge_compat_ioctl
+    	./.../jpeg/src/jpeg_drv_osr.c:static long jpg_osr_compat_ioctl(struct file *file, HI_U32 Cmd, unsigned long Arg)
+    	./.../jpeg/src/jpeg_drv_osr.c:    return jpg_osr_ioctl(file,Cmd,Arg);
     	找到关键的jpg_osr_ioctl（）函数。
     	
     查看jpg_osr_ioctl（）函数的关键代码:
@@ -166,11 +172,11 @@
     	     {CMD_JPG_SET_LOWDELAY_LINE, JPEG_OSR_SetLowdelayLine},  {0,NULL}
     
     9、添加printk输出信息：
-            trace工具并没有跟踪到有/dev/gpeg的设备，也没办法确定是在哪一个命令上死机了。哪个命令是最有可能首先执行呢？按一般规律，任何需
-        要独占访问、有状态或需要初始化的硬件外设，在使用前都必须经过一个“获取设备并使其就绪”的步骤。就有可能的就是JPEG_OSR_GetDevice函数
-        了。
+       trace工具并没有跟踪到有/dev/gpeg的设备，也没办法确定是在哪一个命令上死机了。哪个命令是最有可能首先执行呢？按一般规律，任何
+     需要独占访问、有状态或需要初始化的硬件外设，在使用前都必须经过一个“获取设备并使其就绪”的步骤。就有可能的
+    就是JPEG_OSR_GetDevice函数了。
         
-        显示并分析关键代码：
+      显示并分析关键代码：
     	sed -n '1191,1195p;1201p;' ./src/jpeg_drv_osr.c
     		static HI_S32 JPEG_OSR_GetDevice(HI_ULONG arg)
     		{
@@ -186,33 +192,37 @@
     			DRV_JPEG_CancelReset();
     			JPEG_DRV_SetDecState(HI_TRUE);
     		}
-    在函数JPEG_DRV_GetDevice()内部的DRV_JPEG_ResetReg();DRV_JPEG_OnClock();DRV_JPEG_CancelReset();JPEG_DRV_SetDecState(HI_TRUE);
-    语句前都加入printk()打印语句。就能确定是死机在哪一个语句上了。实测就发生在DRV_JPEG_ResetReg();执行时就死机了。找到死机的具体位置了。
+    在函数JPEG_DRV_GetDevice()内部的
+    DRV_JPEG_ResetReg();DRV_JPEG_OnClock();DRV_JPEG_CancelReset();JPEG_DRV_SetDecState(HI_TRUE);
+    语句前都加入printk()打印语句。就能确定是死机在哪一个语句上了。实测就发生在DRV_JPEG_ResetReg();执行时就死机了。找到死机的
+    具体位置了。
     
 
 ## 三、进一步精确定位：
 
-    1、DRV_JPEG_ResetReg()就是对硬件复位，往往还有时钟使能，时钟频率选择等其它功能。查阅硬件手册，得到JPGD的寄存器首地址是0xf8c40000。
+    1、DRV_JPEG_ResetReg()就是对硬件复位，往往还有时钟使能，时钟频率选择等其它功能。查阅硬件手册，得到JPGD的寄存器
+    首地址是0xf8c40000。
     	用工具软件himm：
     root@histb:~/sample# himm 0xf8c40000                        root@histb:~/sample# himm 0xf8c70000
     	*** Board tools : ver0.0.1_20130123  ***                    *** Board tools : ver0.0.1_20130123  ***
     	[debug]: {source/utils/cmdshell.c:166}cmdstr:himm           [debug]: {source/utils/cmdshell.c:166}cmdstr:himm
     	====dump memory 0XF8C40000====                               ====dump memory 0XF8C70000====
-                                                            0xf8c70000: 0x00000000
-    	                                                     NewValue:0x00000000
-    	                                                     [END]                          
+                                                                    0xf8c70000: 0x00000000
+    	                                                            NewValue:0x00000000
+    	                                                            [END]                          
     0xf8c40000读取会死机，而读取PGD的寄存器首地址0xf8c70000不会死机。
     查阅硬件手册，与JPGD相对应PERI_CRG31的地址是0xf8a2207c。与PGD相对应PERI_CRG34的地址是0xf8a22084。
     	root@histb:~# himm 0xf8a2207c                                root@histb:~# himm 0xf8a22084
     		*** Board tools : ver0.0.1_20130123  ***                       *** Board tools : ver0.0.1_20130123  ***
-    		[debug]: {source/utils/cmdshell.c:166}cmdstr:himm              [debug]: {source/utils/cmdshell.c:166}cmdstr:himm
+    		[debug]: {source/utils/cmdshell.c:166}cmdstr:himm              [debug]: 
+    		{source/utils/cmdshell.c:166}cmdstr:himm
     		====dump memory 0XF8A2207C====                                  ====dump memory 0XF8A22084====
     		0xf8a2207c: 0x00000010                                          0xf8a22084: 0x00000010
     		NewValue:0x00000010                                             NewValue:0x00000010
     		[END]                                                           [END]
-        查阅硬件手册，0x00000010表示的状态是时钟没有使能，处于复位状态。两者都是相同的状态，JPGD寄存器地址读写会死机，PGD寄存器地址读写
-    正常。这样就能完全解释为什么只要有JPEG解码器的测试例程都死机的原因：JPEG解码硬件有它特定的初始化逻辑，与其它几种格式的解码器的初始化逻
-    辑	不一	样。不能按照能用的初始化去适配它。
+    查阅硬件手册，0x00000010表示的状态是时钟没有使能，处于复位状态。两者都是相同的状态，JPGD寄存器地址读写会死机，PGD寄存器地址
+    读写正常。这样就能完全解释为什么只要有JPEG解码器的测试例程都死机的原因：JPEG解码硬件有它特定的初始化逻辑，与其它几种格式的解
+    码器的初始化逻辑不一样。不能按照能用的初始化去适配它。
     
     2、修复方案：给JPEG解码器的JPGD寄存器写一段专门的初始化程序，与BPD寄存器、PGD寄存器不能通用。
     
@@ -262,21 +272,26 @@
 ## 六、修复方法的弊端
 
     1、弊端：
-    	    从PMU（电源管理单元）角度看，在加载驱动时就给JPEG的硬件开启了时钟，而不是在使用JPEG硬件时，会增加整体的待机功耗。应该纠正一
-    	点：这个不是驱动BUG的历史遗留问题，驱动正确的。只是higo算法库有一点点问题。但higo算法库没有开源源码，现在的修改最优解了。
+        从PMU（电源管理单元）角度看，在加载驱动时就给JPEG的硬件开启了时钟，而不是在使用JPEG硬件时，会增加整体的待机功耗。应该纠正
+        一	点：这个不是驱动BUG的历史遗留问题，驱动正确的。只是higo算法库有一点点问题。但higo算法库没有开源源码，现在的修改最优解了。
     
     2、更优的修改方案：
-    	不要在JPEG驱动里改，应该在higo算法库里改。同时在驱动里也要增加一个ioctl指令，在初始化JPGD寄存器前，单独开启PERI_CRG31的时钟的
-    ioctl指令。
+    	不要在JPEG驱动里改，应该在higo算法库里改。同时在驱动里也要增加一个ioctl指令，在初始化JPGD寄存器前，单独开启PERI_CRG31的时
+    	钟的ioctl指令。
     
     3、不能在测试例程改：
-    	理由是在higo算库里，调用一个JPEG解码算法，包含了一系列open(),ioctl()的操作。你在例程里加这一系列操作，会与higo算法库里JPEG解码算
-    法冲突。如果你在例程里不执行open()操作，ioctl操作系列是没有办法执行的。
+    	理由是在higo算库里，调用一个JPEG解码算法，包含了一系列open(),ioctl()的操作。你在例程里加这一系列操作，会与higo算法库里
+    	JPEG解码算	法冲突。如果你在例程里不执行open()操作，ioctl操作系列是没有办法执行的。
     
     4、能不能修改JPEG_DRV_GetDevice()函数？
-    	实测PERI_CRG31与JPGD寄存器操作之间，要有时间间隔。如果在JPEG_DRV_GetDevice()函数里改，higo算法库里JPEG解码算法可能是会多次调用
-    JPEG_DRV_GetDevice()函数，多次延时造成JPEG解码算法需要很长时间。在JPEG_DRV_GetDevice()函数有可能实现，要避免多次延时造成JPEG解码算
-    法	慢。
+    	实测PERI_CRG31与JPGD寄存器操作之间，要有时间间隔。如果在JPEG_DRV_GetDevice()函数里改，higo算法库里JPEG解码算法可能是会
+    	多次调用JPEG_DRV_GetDevice()函数，多次延时造成JPEG解码算法需要很长时间。在JPEG_DRV_GetDevice()函数有可能实现，要避免多
+    	次延时造成JPEG解码算法慢。
     
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)
 
 ## 其它细节

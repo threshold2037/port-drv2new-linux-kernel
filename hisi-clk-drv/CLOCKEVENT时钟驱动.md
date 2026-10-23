@@ -4,8 +4,8 @@
     把HiSTBLinuxV100R005C00SPC041B020版本的驱动移植到linux-5.15内核上。使用buildroot创建工具链，和根文件系统。
     全部代码的移植工作基本完成，编译通过。到了将代码放到目标硬件实际运行的阶段。
     
-    	drivers/hisilicon/clocksource/timer.c驱动程序移植到linux-5.15内核，源码先按linux-5.15内核作了初步适配，比如不同版本带来的变量
-    或宏采用以下替换：
+    drivers/hisilicon/clocksource/timer.c驱动程序移植到linux-5.15内核，源码先按linux-5.15内核作了初步适配，比如不同版本带来
+    的变量或宏采用以下替换：
     //       linux-3.18                                        linux-5.15
     #define clock_event_mode                               clock_event_state
     
@@ -44,15 +44,16 @@
     	1）、elixir网上查阅linux-3.18内核，setup_irq和remove_irq函数在include/linux/irq.h文件定义 (as a prototype)， 
     		register_cpu_notifier函数在include/linux/cpu.h文件定义(as a prototype)。
     	
-    	2）、elixir网上查阅linux-5.15内核，setup_irq和remove_irq函数在内核文件没有定义，register_cpu_notifier函数在内核文件没有定义。
+    	2）、elixir网上查阅linux-5.15内核，setup_irq和remove_irq函数在内核文件没有定义，register_cpu_notifier函数在内核文件没
+    	有定义。
     	
     	3）、elixir网上进一步查阅，setup_irq和remove_irq函数在linux-5.7以上的内核被移除了。
     	
     	4）、elixir网上进一步查阅，register_cpu_notifier函数在linux-4.10以上的内核被移除了。
     
-    	5）、在LKML上查找“Remove setup_irq”，找到有关tip: irq/urgent genirq: Remove setup_irq() and remove_irq()，点进去。找到
-    		Commit-ID和Gitweb关键字。点Gitweb后面的网址，里面有这样的描述：“Now that all the users of setup_irq() & remove_irq() 
-    		have been replaced by request_irq() & free_irq() respectively, delete them.”
+    	5）、在LKML上查找“Remove setup_irq”，找到有关tip: irq/urgent genirq: Remove setup_irq() and remove_irq()，点进去。
+    	找到Commit-ID和Gitweb关键字。点Gitweb后面的网址，里面有这样的描述：“Now that all the users of setup_irq() & 
+    	remove_irq() have been replaced by request_irq() & free_irq() respectively, delete them.”
     
     	 6）、用同样的方法找到register_cpu_notifier函数的替代函数，cpuhp_setup_state() + 分别提供 startup 和 teardown 两个回调。
     
@@ -61,8 +62,9 @@
 
     1、改写原hisi_set_mode函数：
     	原hisi_set_mode函数包含设置四种模式：CLOCK_EVT_MODE_PERIODIC、CLOCK_EVT_MODE_ONESHOT、CLOCK_EVT_MODE_SHUTDOWN、
-    	CLOCK_EVT_MODE_UNUSED。linux-5.15内核没有完全对应的CLOCK_EVT_MODE_UNUSED模式，舍去。用hisi_clkevt_set_state_periodic、
-    	hisi_clkevt_set_state_oneshot、hisi_clkevt_set_state_shutdown分别实现前三种模式的函数代替。
+    	CLOCK_EVT_MODE_UNUSED。linux-5.15内核没有完全对应的CLOCK_EVT_MODE_UNUSED模式，舍去。
+    	用hisi_clkevt_set_state_periodic、hisi_clkevt_set_state_oneshot、hisi_clkevt_set_state_shutdown分别实现前三种模
+    	式的函数代替。
     
     2、改写原hisi_local_timer_setup函数：
     	原hisi_local_timer_setup函数中clk->set_mode = hisi_set_mode;改成：
@@ -138,8 +140,9 @@
     	cat /sys/devices/system/clocksource/clocksource0/current_clocksource
     			hisi-timer
     3、测试：
+    	用内核函数debugfs_create_file写一个测试用例hrtimer_test。测试数据如下：
     	
-    	echo 1 > hrtimer_test
+       echo 1 > hrtimer_test
      	cat hrtimer_test
     		1 usecs x 100: exp=1000 allowed=995 min=31625 avg=33719 max=96708
     	
@@ -157,5 +160,10 @@
     
     4、 jiffies定时器的精度，通常在10mS。hrtimer实测达到40uS
     
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)
 
 ## 其它细节

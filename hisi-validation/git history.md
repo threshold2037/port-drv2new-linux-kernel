@@ -1,3 +1,66 @@
+commit c3b5ef420382546a32692321452dea56b0fac4e0 (HEAD -> master)
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Fri Oct 2 22:14:11 2026 +0800
+
+    proc: fix kernel panic caused by incorrect seq_printf usage
+    
+    seq_printf() has returned void since Linux 4.10 (commit 4115af7d46d5).
+    Using its return value and adding it to struct seq_file pointer
+    causes invalid pointer arithmetic, leading to kernel paging request
+    faults and system Oops.
+    
+    This issue is observed when running LTP proc01 test, which triggers
+    the following call path:
+    
+      HDMI0_Proc
+       └─ seq_printf
+           └─ vsnprintf
+               └─ mmiocpy
+                   └─ Oops
+    
+    Fix by removing pointer arithmetic and using seq_printf() correctly.
+    
+
+commit 577676465263cc66c5dc389cd0faac17e3fe5810
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Fri Oct 2 20:32:52 2026 +0800
+
+    hisilicon: fix kernel panic on /proc access (LTP proc01 failure)
+    
+    The LTP proc01 test triggers a NULL pointer dereference at
+    __mutex_lock+0x9c when accessing /proc/vfmw* entries. This is
+    because the driver incorrectly uses struct file_operations instead
+    of struct proc_ops for procfs entries.
+    
+    Replace file_operations with proc_ops and map callbacks to their
+    proc_* equivalents (.open -> .proc_open, etc.) across all affected
+    drivers (himedia, vfmw, adsp, part-change, userproc, etc.) to
+    resolve the issue.
+    
+
+commit af4cd80924ff9d399bdf13feb02211b84e02cb6f
+Author: Linux Kernel Upgrade <Upgrade@email.system>
+Date:   Thu Oct 1 10:23:11 2026 +0800
+
+    cpufreq: hi3798mx: remove cpus_read_lock() from target() to fix circular locking
+    The driver's ->target() callback (hi_cpufreq_target → hi_cpufreq_scale) was calling cpus_read_lock() / get_online_cpus(), which triggered a lockdep circular dependency on Linux 5.15:
+      cpu_hotplug_lock  >  policy->rwsem  >  userspace_mutex  >  hi_cpufreq_lock
+                                                            \ (driver private)
+                                                             > cpu_hotplug_lock
+    Lock order is violated because the core already holds policy->rwsem (and indirectly cpu_hotplug_lock) before invoking ->target(), while the driver attempts to acquire cpu_hotplug_lock inside its own hi_cpufreq_lock, creating an ABBA deadlock scenario.
+    The hotplug lock is unnecessary here:
+      - On 5.15+, get_online_cpus() was already removed upstream; the driver was calling cpus_read_lock() that still triggered lockdep.
+      - __cpufreq_driver_target() already serialises via policy->rwsem,and CPU hotplug is excluded by the core before calling ->target().
+      - The cpufreq notifiers (transition_begin/end) internally handle any CPU-state synchronisation needed.
+    Fix by completely removing the cpus_read_lock() / cpus_read_unlock() pair from hi_cpufreq_scale().  No replacement lock is needed.
+    Also clean up version-conditional remnants:
+      - Drop the 5.15 cpus_read_lock() calls that caused this warning.
+      - Initialise freqs.policy (required since 5.2 struct change).
+      - Pass correct failure flag to cpufreq_freq_transition_end().
+      - Correct the version thresholds: 3.15 for transition_begin/end,4.13 for cpus_read_lock availability, 5.2 for freqs.policy.
+    Tested on Hi3798MX with 5.15.134_s40; circular-lock warning is gone and frequency scaling works normally under userspace governor.
+    
+
 commit ec906cf6347dd36a39afdd87fefa82cbcc666465
 Author: Linux Kernel Upgrade <Upgrade@email.system>
 Date:   Tue Sep 29 13:48:52 2026 +0800
@@ -154,3 +217,8 @@ Date:   Wed Jul 22 14:24:58 2026 +0800
     
 
 ......省略，只展示最近的部分。
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)

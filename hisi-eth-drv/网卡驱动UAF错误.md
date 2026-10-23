@@ -50,9 +50,10 @@
     											        -> __asan_load4            # 实际触发的是 4 字节读取
     							    -> hieth_net_hard_start_xmit[<8081c9b4>] + 0x1ec   # 实际发生错误的函数
         -> dev_hard_start_xmit -> sch_direct_xmit -> __dev_queue_xmit -> dev_queue_xmit -> ip_finish_output2 
-        -> _ip_finish_output -> ip_output  -> __ip_queue_xmit -> ip_queue_xmit -> __tcp_transmit_skb -> __tcp_send_ack.part.0 
-        -> tcp_send_ack -> tcp_cleanup_rbuf   -> tcp_recvmsg_locked -> tcp_recvmsg -> inet_recvmsg -> sock_recvmsg 
-        -> xs_stream_data_receive_workfn -> process_one_work -> worker_thread -> kthread -> ret_from_fork
+        -> _ip_finish_output -> ip_output  -> __ip_queue_xmit -> ip_queue_xmit -> __tcp_transmit_skb 
+        -> __tcp_send_ack.part.0 -> tcp_send_ack -> tcp_cleanup_rbuf   -> tcp_recvmsg_locked -> tcp_recvmsg 
+        -> inet_recvmsg -> sock_recvmsg -> xs_stream_data_receive_workfn -> process_one_work 
+        -> worker_thread -> kthread -> ret_from_fork
     
     3、整理后的分配栈：
     	__kasan_slab_alloc -> kmem_cache_alloc
@@ -68,8 +69,8 @@
 
     1、关键信息：
     	1）、出错变量名和地址：
-    	     已分配内存块大小176字节，范围（0x859a0e40, 0x859a0ef0）出错的地址位于首址偏移80处，即0x859a0e40+0x50 = 0x859a0e90。该内
-    	     存块是 `struct sk_buff` 对象，由 `__alloc_skb()` 分配，来源于 `skbuff_head_cache` 缓存。
+    	     已分配内存块大小176字节，范围（0x859a0e40, 0x859a0ef0）出错的地址位于首址偏移80处，即0x859a0e40+0x50 = 
+    	     0x859a0e90。该内存块是 `struct sk_buff` 对象，由 `__alloc_skb()` 分配，来源于 `skbuff_head_cache` 缓存。
     	2）、出错函数名：
     		出错的函数名hieth_net_hard_start_xmit，在它首址<0x80aa034c> + 0x1ec处。
     	3）、出错的类型：
@@ -98,7 +99,7 @@
     		}
     3、反汇编确认报错偏移:
     	出错地址 = 函数入口 + 偏移 = 8081c9b4 + 0x1ec = 8081cba0
-    	./arm-linux-objdump -d  ./out/.../obj/.../vmlinux | grep -A 130 "<hieth_net_hard_start_xmit>:" | grep -C3 '8081cba0:'
+    	./arm-linux-objdump -d  ./out/.../vmlinux | grep -A 130 "<hieth_net_hard_start_xmit>:" | grep -C3 '8081cba0:'
     			8081cb94:       e1a00007        mov     r0, r7
     			8081cb98:       e59465a4        ldr     r6, [r4, #1444] @ 0x5a4
     			8081cb9c:       ebea6012        bl      802b4bec <asan_load4>
@@ -117,14 +118,15 @@
 ## 三、深入分析原因
 
     1、分析相关源码：
-    出错点：`hieth_net_hard_start_xmit` 中执行 `priv->stats.tx_bytes += skb->len;` 时，`skb` 已被释放，属于典型的 use-after-free。
+    出错点：`hieth_net_hard_start_xmit` 中执行 `priv->stats.tx_bytes += skb->len;` 时，`skb` 已被释放，属于典型的 
+    use-after-free。
     发送路径梳理：
     	a. 网络协议栈调用 `hieth_net_hard_start_xmit`，将待发送的 `skb` 传递给驱动。
     	b. 驱动调用 `hieth_xmit_real_send`，将 `skb` 挂入发送队列，启动硬件发送动作，然后函数返回。
     	c. 发送动作完成后，硬件产生中断，触发 `hieth_net_isr` 中断服务程序。
     	d. 中断服务程序调用 `hieth_net_isr_proc`，在其中调用 `napi_schedule(&priv->napi)` 调度 NAPI。
-    	e. 由于 `hieth_platdev_probe_port` 中已调用 `netif_napi_add` 注册了 `hieth_poll` 作为 NAPI 的回调函数，因此在软中断上下文
-    	中，	`hieth_poll` 会被执行，并作为最终的处理函数，处理发送完成事件，很可能在这里释放 `skb`。
+    	e. 由于 `hieth_platdev_probe_port` 中已调用 `netif_napi_add` 注册了 `hieth_poll` 作为 NAPI 的回调函数，因此在软中断
+    	上下文中，	`hieth_poll` 会被执行，并作为最终的处理函数，处理发送完成事件，很可能在这里释放 `skb`。
     
     2、定位skb释放点：
     	sed -n "1016,1030p" ./hi3798mveth/hieth.c
@@ -146,22 +148,23 @@
     把启动硬件发送数据放在更新数据之后，返回之前。并且在更新priv->stats上锁，更新完成后解锁。如下面所示：
     sed -n '642,644p;672,682p' ./hi3798mveth/hieth.c
     static int hieth_net_hard_start_xmit(struct sk_buff *skb,struct net_device *dev){
-    	// hieth_xmit_real_send(priv, skb);  // moved to after tx_bytes update (which uses skb->len) (by huxm 20260830)
-    	//dev->trans_start = jiffies;        // removed from active code (by huxm 20260114)
-    	netif_trans_update(dev);             // replaces the old dev->trans_start = jiffies (by huxm 20260114)
-    	hieth_local_lock(priv);     // Acquire lock to protect tx statistics updates from concurrent access(by huxm 20260830)
+    	// hieth_xmit_real_send(priv, skb); // moved to after tx_bytes update (which uses skb->len) (by huxm 20260830)
+    	//dev->trans_start = jiffies;       // removed from active code (by huxm 20260114)
+    	netif_trans_update(dev);            // replaces the old dev->trans_start = jiffies (by huxm 20260114)
+    	hieth_local_lock(priv);// Acquire lock to protect tx statistics updates from concurrent access(by huxm 20260830)
     	priv->stats.tx_packets++;
     	priv->stats.tx_bytes += skb->len;
     	hieth_local_unlock(priv);    // Release lock after tx statistics updates are completed(by huxm 20260830)
-    	hieth_xmit_real_send(priv, skb);   // relocated to after tx_bytes update (which uses skb->len) (by huxm 20260830)
+    	hieth_xmit_real_send(priv, skb); // relocated to after tx_bytes update (which uses skb->len) (by huxm 20260830)
     	return NETDEV_TX_OK;
     }
     
     2、修复策略的理论依据：
     hieth_xmit_real_send 内部已持有 hieth_local_lock(priv)，而 hieth_poll 在释放 skb 时也需要同一把锁，因此发送路径与释放路径是互
     斥的。中断中仅触发 NAPI，不加锁，锁只用于 softirq 的 poll 处理。
-    在 hieth_net_hard_start_xmit 的另一个分支中，当 hieth_hw_xmitq_ready() 返回 false 时，驱动既不会调用 hieth_xmit_real_send，也不
-    会	将 skb 交给硬件，因此不存在“硬件提前完成并释放 skb”的风险。NETDEV_TX_BUSY 的语义是驱动暂时无法接收该 skb，要求内核协议栈稍后重试；
+    在 hieth_net_hard_start_xmit 的另一个分支中，当 hieth_hw_xmitq_ready() 返回 false 时，驱动既不会调用 hieth_xmit_real_send，
+    也不会	将 skb 交给硬件，因此不存在“硬件提前完成并释放 skb”的风险。NETDEV_TX_BUSY 的语义是驱动暂时无法接收该 skb，要求内核协
+    议栈稍后重试；
     __dev_queue_xmit 收到该返回值后会把 skb 重新入队，不会释放它，所以这个分支本身不会引发 use-after-free 问题。
     如果 netif_stop_queue 停止队列后，没有任何路径调用 netif_wake_queue，发送确实会永久停住，表现为“忙等”。但驱动注册了 
     HIETH_GLB_IRQ_INT_TXQUE_RDY 中断，当队列重新可写时会触发中断并重新启动队列，因此正常情况下不会发生死锁。
@@ -171,5 +174,10 @@
 
     修复后连续执行10次重启，再也没有出现KASAN报错。
     
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)
 
 ## 其它细节

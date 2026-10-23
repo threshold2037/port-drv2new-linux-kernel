@@ -280,3 +280,8 @@
     Welcome to histb-3798mv100
     root@histb:~#
     
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)

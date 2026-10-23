@@ -46,21 +46,21 @@
 ## 二、初步分析排查：
 
     1、初步判断：
-    	从问题描述得到结论：platform 设备已经注册到总线， host 控制器存在，/dev没有mmcblk设备。是emmc枚举失败，控制台间隔5秒左右的信息正
-    	是枚举的命令流系列。
+    	从问题描述得到结论：platform 设备已经注册到总线， host 控制器存在，/dev没有mmcblk设备。是emmc枚举失败，控制台间隔5秒左
+    	右的信息正是枚举的命令流系列。
     2、分析源码：
     	根据错误信息：himciv200_0: wait cmd request complete is timeout!Raw interrupt status 0x00000104...查找源码位置。
      grep -rn -C20 'wait cmd request complete is timeout' ./
     	./himciv200.c-661-static int himciv200_wait_cmd_complete(struct himciv200_host *host)
     	./himciv200.c-662-{               ......
-    	./himciv200.c-670-      time = wait_event_timeout(host->intr_wait,
-    	./himciv200.c-671-                              test_bit(HIMCI_PEND_CD_b, &host->pending_events),time);
+    	./himciv200.c-670-    time = wait_event_timeout(host->intr_wait,
+    	./himciv200.c-671-        test_bit(HIMCI_PEND_CD_b, &host->pending_events),time);
     	./himciv200.c-674-                 ......
-    	./himciv200.c-675-      if ((time <= 0)&& (!test_bit(HIMCI_PEND_CD_b, &host->pending_events))) {
+    	./himciv200.c-675-    if ((time <= 0)&& (!test_bit(HIMCI_PEND_CD_b, &host->pending_events))) {
     	./himciv200.c-680-         regval = mci_readl(host, MCI_RINTSTS);
     	./himciv200.c:682:         himci_error("wait cmd request complete is timeout!"
-    	./himciv200.c-683-             "Raw interrupt status 0x%08X, CMD%u(%X)\n", host->devid, regval, cmd->opcode, cmd->arg);
-    	./himciv200.c-685-      }
+    	./himciv200.c-683-        "Raw interrupt status 0x%08X, CMD%u(%X)\n", host->devid, regval, cmd->opcode, cmd->arg);
+    	./himciv200.c-685-    }
     	./himciv200.c-699-                  ......
     	./himciv200.c-700-      return 0;
     	./himciv200.c-701-}
@@ -72,13 +72,13 @@
     	2）、根据himciv200_def.h提供的信息，在“2、”源码中增加MCI_MINTSTS、MCI_INTMASK、MCI_CTRL寄存器的打印信息。得到如下信息：
     	    MCI_RINTSTS=0x00000104,MCI_MINTSTS=0x00000004,MCI_INTMASK=0x0000040C,MCI_CTRL=0x02000010。
     	
-    	3）、经过分析得知这几个寄存器对应的位是正确设置的。MCI_CTRL中EMMC host 中断总控制INTR_EN被 允许，和DMA中断USE_INTERNAL_DMA被允
-    	    许；MCI_INTMASK寄存器中的卡检测中断掩码CD_INT_MASK、数据传输超时中断掩码DTO_INT_MASK、电压切换中断掩码
-    	    VOLT_SWITCH_INT_MASK被	置位，它们对应的中断被允许；MCI_MINTSTS寄存器则指示数据传输超时中断状态DTO_INT_STATUS发生；
-    	    MCI_MINTSTS寄存器比MCI_RINTSTS寄存器少了DRTO_INT_STATUS状态位，应该是对应的MCI_INTMASK寄存器中对应的位被屏蔽了。
+    	3）、经过分析得知这几个寄存器对应的位是正确设置的。MCI_CTRL中EMMC host 中断总控制INTR_EN被 允许，和DMA中断
+    	USE_INTERNAL_DMA被允许；MCI_INTMASK寄存器中的卡检测中断掩码CD_INT_MASK、数据传输超时中断掩码DTO_INT_MASK、电压切换中断
+    	掩码VOLT_SWITCH_INT_MASK被置位，它们对应的中断被允许；MCI_MINTSTS寄存器则指示数据传输超时中断状态DTO_INT_STATUS发生；
+    	 MCI_MINTSTS寄存器比MCI_RINTSTS寄存器少了DRTO_INT_STATUS状态位，应该是对应的MCI_INTMASK寄存器中对应的位被屏蔽了。
     	
-    	4）、最终的结论是，寄存器设置正常，发生了数据传输超时中断，但是在中断里可能没有对类似于HIMCI_PEND_CD_b的位HIMCI_PEND_DTO_b和
-    	    HIMCI_PEND_CD_b本身置位，或是中断服务程序根本没有被执行。
+    	4）、最终的结论是，寄存器设置正常，发生了数据传输超时中断，但是在中断里可能没有对类似于HIMCI_PEND_CD_b的位
+    	HIMCI_PEND_DTO_b和HIMCI_PEND_CD_b本身置位，或是中断服务程序根本没有被执行。
     
     4、中断分析：
     	1）、在中断服务程序himciv200_irq()中开头位置加入打印信息，没有信息输出。中断服务程序根本没有被执行。
@@ -94,9 +94,11 @@
 
      4）、probe()函数中ret = request_irq(host->irq, himciv200_irq, 0, DRVNAME, host);语句前后增加打印信息，证实注册成功。
      
-     5）、检查设备树配置中，中断号与手册信息相符。“2）、”和设备树显示中断触发类型是边沿触发。但是根据《[[gpu的中断号问题]]》一文中的经验，
-    	 中断触发类型一般情况是高电平触发。
-     
+     5）、检查设备树配置中，中断号与手册信息相符。“2）、”和设备树显示中断触发类型是边沿触发。但是根据
+    
+
+《[gpu的中断号问题](../hisi-gpu-drv/gpu%E7%9A%84%E4%B8%AD%E6%96%AD%E5%8F%B7%E9%97%AE%E9%A2%98.md)》一文中 的经验，中断触发类型一般情况是高电平触发。
+
      6）、查看HiSTBLinuxV100R005C00SPC041B020版本DTS文件：grep -A10 'himciv200.MMC@0xf9830000' ./hi3798mv100.dts
                 himciv200.MMC@0xf9830000 {
                         compatible = "hi3798mv100,himciv200";
@@ -109,12 +111,12 @@
     5、中断风暴：
     	1）、设备树配置中，把中断触发类型改成高电平触发，立即触发中断风暴。耗尽CPU处理能力，死机。
     	
-    	2）、中断服务程序中打印MCI_MINTSTS、MCI_RINTSTS、MCI_CDETECT寄存器。清除MCI_MINTSTS寄存器防止反复中断，查看卡检测的状态有没有
-    	MCI_CDETECT出现不稳定现象。输出信息如下：
+    	2）、中断服务程序中打印MCI_MINTSTS、MCI_RINTSTS、MCI_CDETECT寄存器。清除MCI_MINTSTS寄存器防止反复中断，查看卡检测的状
+    	态有没有MCI_CDETECT出现不稳定现象。输出信息如下：
     		[   22.650861] himciv200 irq 1561 times,MCI_MINTSTS=0x00000000,MCI_RINTSTS=0x00000000,MCI_CDETECT=0x00000000,
     	
-    	3）、瞬时发生了1561次中断，MCI_MINTSTS和MCI_RINTSTS显示没有发生中断，MCI_CDETECT检测稳定输出0值，没有其它跳变的值。原来的超时错
-    		误再也没有发生，中断风暴耗尽CPU。
+    	3）、瞬时发生了1561次中断，MCI_MINTSTS和MCI_RINTSTS显示没有发生中断，MCI_CDETECT检测稳定输出0值，没有其它跳变的值。
+    	原来的超时错误再也没有发生，中断风暴耗尽CPU。
     	
     	4）、奇怪的事发生了，MCI_MINTSTS和MCI_RINTSTS显示没有发生中断，事实却是短时间内打印了1561条信息，发生了中断风暴。分析进入了
     		死胡同。
@@ -123,18 +125,18 @@
 ## 三、深入分析原因
 
     1、其它中断：
-    	MCI_MINTSTS和MCI_RINTSTS显示没有发生中断，还有其它中断。根据MCI_CTRL寄存器中EMMC host 中断总控制INTR_EN被 允许外，还有DMA中断
-    USE_INTERNAL_DMA被允许；查看头文件himciv200_def.h，与DMA相关的内容。
+    	MCI_MINTSTS和MCI_RINTSTS显示没有发生中断，还有其它中断。根据MCI_CTRL寄存器中EMMC host 中断总控制INTR_EN被允许外，还有
+    	DMA中断USE_INTERNAL_DMA被允许；查看头文件himciv200_def.h，与DMA相关的内容。
     2、DMA中断：
     	中断服务程序增加打印DMA中断，输出信息如下：
     		[    4.092118] himciv200 irq 32 times,MCI_MINTSTS=0x00000000,MCI_RINTSTS=0x00000000,MCI_IDSTS=0x00000102
     		MCI_IDSTS寄存器（应该是Internal DMA Status缩写）不是0，证实确实是发生了DMA相关的中断风暴。
     3、区分中断风暴：
-    	区分是持继产生DMA中断事件，还是中断状态位没有清除产生的中断风暴。在中断服务程序中清除MCI_IDSTS寄存器。再也没有发生中断暴。成功解决
-    	问题。
+    	区分是持继产生DMA中断事件，还是中断状态位没有清除产生的中断风暴。在中断服务程序中清除MCI_IDSTS寄存器。再也没有发生中断暴。
+    	成功解决问题。
     4、真正的原因：
-    	查看HiSTBLinuxV100R005C00SPC041B020版本的中断服务程序，是一模一样的。为什么在linux-3.18内核中却没有发生中断风暴。可能合理的推测
-    	是：Linux 5.15 的 MMC 核心层通过以下机制导致 IDMAC 中断在实际运行中被使能：
+    	查看HiSTBLinuxV100R005C00SPC041B020版本的中断服务程序，是一模一样的。为什么在linux-3.18内核中却没有发生中断风暴。可能
+    	合理的推测是：Linux 5.15 的 MMC 核心层通过以下机制导致 IDMAC 中断在实际运行中被使能：
     	- MMC host capability 标志的默认值变化
     	- 内核 DMA 子系统（DMA Engine、IOMMU）的行为变化
     	而 3.18 的 MMC 核心层环境下，host 驱动运行后 MCI_IDINTEN 的 IDMAC 位实际为 0，所以 bug 被掩盖。
@@ -158,5 +160,10 @@
     	cat /proc/interrupts | grep himciv200
     	 26:        196          0          0          0     GIC-0  67 Level     himciv200
     
+
+## Support
+
+若本文对你的学习与工作有所帮助、启发，欢迎支持！  
+[SupportQR](../Support/SupportQR.md)
 
 ## 其它细节
