@@ -1,1 +1,1 @@
-![supportQR.png](../supportQR.png)
+![supportQR.png](./supportQR.png)
